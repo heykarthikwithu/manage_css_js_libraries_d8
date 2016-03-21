@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+</head>
+<body>
+<div data-quickedit-field-id="node/1466/body/en/full" class="clearfix text-formatted field field--name-body field--type-text-with-summary field--label-hidden field__item">
+
+    <h1 class="heading">Managing CSS and JavaScript files in Drupal 8 with Libraries</h1>
+
+    <p>Drupal 8 revolutionizes the theming experience with many significant improvements to make theming easier, and give themers the flexibility and control they've never had before. One of those major improvements is to the library management system, which controls the attaching of CSS and JavaScript files.</p>
+
+    <p>In this post we will cover how to create and control libraries from a theme. This will include SMACSS categorization for CSS files, dependencies, how to conditionally attach libraries, manipulating libraries that come from anywhere in a site (core, modules, or base themes,) and targeting individual files for removal or replacement. All this without needing a single line of PHP.</p>
+
+    <h3>Creating Libraries</h3>
+
+    <p>The <span style="font-family:monospace">scripts</span> and <span style="font-family:monospace">stylesheets</span> properties used in previous versions of Drupal no longer exist. In Drupal 8 we manage all of these files using libraries defined in a <span style="font-family:monospace">.libraries.yml</span> file, added to your theme.</p>
+
+    <p>Each library defined in this file includes a unique name, any number of CS or JS files, dependencies, and other information needed to define the properties of the library or assets.</p>
+
+    <p>Here is an example of a library file:</p>
+
+    <p><code># In mythemename.libraries.yml<br><br>
+        # Give your library a name.<br>
+        my-library-name:<br>
+        &nbsp;&nbsp;version: "1.0.x"<br>
+        &nbsp;&nbsp;css:<br>
+        &nbsp;&nbsp; &nbsp;# The SMACSS category.<br>
+        &nbsp;&nbsp; &nbsp;base:<br>
+        &nbsp;&nbsp; &nbsp; &nbsp;# The path to the css file.<br>
+        &nbsp;&nbsp; &nbsp; &nbsp;assets/css/base.css: {}<br>
+        &nbsp;&nbsp; &nbsp;theme:<br>
+        &nbsp;&nbsp; &nbsp; &nbsp;assets/css/print.css: { media: print }<br>
+        &nbsp;&nbsp;js:<br>
+        &nbsp;&nbsp; &nbsp;assets/js/myglobal.js {}<br>
+        &nbsp;&nbsp;dependencies:<br>
+        &nbsp;&nbsp; &nbsp;- core/jquery<br><br>
+        # In the following example, we add a Google font (Lato).<br>
+        lato:<br>
+        &nbsp;&nbsp;css:<br>
+        &nbsp;&nbsp; &nbsp;base: '//fonts.googleapis.com/css?family=Lato': { external: true }</code></p>
+
+    <p>The file is in YAML format, which Drupal 8 uses for all configuration files. It should be named using the name of your theme, just like&nbsp;your <span style="font-family:monospace">.info.yml</span> file. Let’s take a look at each line to get a better understanding of all the properties.</p>
+
+    <h4>Naming</h4>
+
+    <p><code># Give your library a name.<br>
+        my-library-name:</code></p>
+
+    <p>Each library is given a custom name. This name can be anything, but must be unique to the module or theme that supplies it. This should be easy to keep track of since the libraries that belong to the same module or theme are defined in the same file. The name does not have to be unique to the entire website, because libraries are referenced using both the library name and source. For example, <span style="font-family:monospace">mythemename/my-library-name</span>, but we’ll get to that later when we start attaching and manipulating libraries.</p>
+
+    <h4>Version</h4>
+
+    <p><code>version: "1.0.x"</code></p>
+
+    <p>The version is completely optional. It is only used for identification purposes, along with other properties like <span style="font-family:monospace">license</span>, <span style="font-family:monospace">remote</span>, and a few others that we won’t go into. You may want to add a version for a library you use with multiple projects to keep track of which version is used at any given time. It is also helpful when creating a library that uses CSS or JS from an external source. For example, if you copy code for a slideshow, you may want to add the source version here to keep track of it.</p>
+
+    <h4>CSS</h4>
+
+    <p><code>css:<br>
+        &nbsp; # The SMACSS category.<br>
+        &nbsp; base:<br>
+        &nbsp; &nbsp; # The path to the css file.<br>
+        &nbsp; &nbsp; assets/css/base.css: {}<br>
+        &nbsp; theme:<br>
+        &nbsp; &nbsp; assets/css/print.css: { media: print }</code></p>
+
+    <p>All CSS files are included below the <span style="font-family:monospace">css:</span>&nbsp;line. In this case there are two CSS files, <span style="font-family:monospace">base.css</span>&nbsp;and <span style="font-family:monospace">print.css</span>. Each is listed below a category, <span style="font-family:monospace">base</span>&nbsp;and <span style="font-family:monospace">theme</span>, respectively. These are SMACSS categories, which Drupal 8 uses for all CSS files. See the documentation page on <a href="https://www.drupal.org/node/1887922">CSS file organizaton</a>.</p>
+
+    <h4>SMACSS</h4>
+
+    <p>SMACSS is a method for organizing files and CSS rules. You don’t have to follow it in your theming, but you do need to understand how it works and what categories exist, because it is used everywhere in Drupal 8 that you encounter CSS files. If you’ve never used SMACSS before, just know that there are five categories:&nbsp;<span style="font-family:monospace">base</span>, <span style="font-family:monospace">layout</span>, <span style="font-family:monospace">component</span>, <span style="font-family:monospace">state</span>, and <span style="font-family:monospace">theme</span>.</p>
+
+    <p>When libraries are processed and stylesheets added to a page, they are added in the order of these categories. So a file in the <span style="font-family:monospace">base</span> category will always come before a file in the <span style="font-family:monospace">theme</span> category. The one caveat to this is all module libraries are grouped together and then all theme libraries, so regardless of category, a theme’s stylesheets will always come after the ones supplied by modules.</p>
+
+    <p>Back to our example...</p>
+
+    <h4>Additional Properties</h4>
+
+    <p><code>theme:<br>
+        &nbsp; assets/css/print.css: { media: print }</code></p>
+
+    <p>The line below the SMACSS category is where we add the CSS file. The path, relative to the root of the theme, is used to identify the file. Following the file are a pair of curly braces where additional properties can be set. In this case, the <span style="font-family:monospace">media</span> property is set to <span style="font-family:monospace">print</span>. The available values for <span style="font-family:monospace">media</span> are <span style="font-family:monospace">screen</span>, <span style="font-family:monospace">print</span>, or <span style="font-family:monospace">all</span>. If no value is set, <span style="font-family:monospace">all</span> is used.</p>
+
+    <h4>JavaScript</h4>
+
+    <p><code>js:<br>
+        &nbsp; assets/js/myglobal.js {}</code></p>
+
+    <p>Like CSS, we add JavaScript files below the <span style="font-family:monospace">js:</span> line, with each file on a separate line. Unlike CSS, there is no SMACSS category to worry about. But, just like CSS, you can set additional properties inside the curly braces following the file name. For example, adding <span style="font-family:monospace">minified: true</span> will tell Drupal this file has already been minified, so don’t try to minify it again when aggregating the files.</p>
+
+    <p>One thing to note is Drupal 8 adds all JavaScript files to the footer of a page. If you need to have your JavaScript loaded in the header, add <span style="font-family:monospace">header: true</span> to the library.</p>
+
+    <p><code>my-library-name:<br>
+        &nbsp; header: true<br>
+        &nbsp; ...<br>
+        &nbsp; js:<br>
+        &nbsp; &nbsp; assets/js/myglobal.js {}<br>
+        &nbsp; ...</code></p>
+
+    <p>If the <span style="font-family:monospace">header</span>&nbsp;property is set to true, any dependencies defined in the library will also get loaded in the header.</p>
+
+    <h4>Dependencies</h4>
+
+    <p><code>dependencies:<br>
+        &nbsp; - core/jquery</code></p>
+
+    <p>The <span style="font-family:monospace">dependencies:</span> line is where you add any libraries your library requires. This must be other libraries already defined by your theme, some module, or Drupal core. Notice that the library is referenced using its name, and where it came from. In this case, <span style="font-family:monospace">core</span>. (<span style="font-family:monospace">core</span>&nbsp;refers to a literal&nbsp;<span style="font-family:monospace">core.libraries.yml</span>&nbsp;file. Libraries defined by core modules will use their names; block, node, field, views, system, etc.)&nbsp;This is how we avoid name conflicts.</p>
+
+    <h4>External Files</h4>
+
+    <p><code>lato:<br>
+        &nbsp; css:<br>
+        &nbsp; &nbsp; base:<br>
+        &nbsp; &nbsp; &nbsp; '//fonts.googleapis.com/css?family=Lato': { external: true }</code></p>
+
+    <p>In the second example, we see how to link to external stylesheets. Simply supply the external URL for retrieving the file, and set the <span style="font-family:monospace">external</span> property to <span style="font-family:monospace">true</span>.</p>
+
+    <h3>Attaching Libraries</h3>
+
+    <p>There are three basic ways for a theme to attach libraries; in the <span style="font-family:monospace">.info.yml</span> file, directly in a template file, and in a preprocess function. Let's go over each of those methods.</p>
+
+    <h4>Global</h4>
+
+    <p>To attach assets globally so they are added to every page of the website, add them in your theme’s <span style="font-family:monospace">.info.yml</span> file.</p>
+
+    <p><code>libraries:<br>
+        &nbsp; - core/normalize<br>
+        &nbsp; - mythemename/my-library-name</code></p>
+
+    <h4>Twig</h4>
+
+    <p>A great way to attach a library conditionally is to do so directly in a template file. Drupal 8 has a special function called <span style="font-family:monospace">attach_library()</span> just for this purpose.</p>
+
+    <p><code>{# In a Twig template file. #}<br><br>
+        {{ attach_library('mythemename/my-library-name') }}</code></p>
+
+    <p>The advantage here is in matching the same conditions of the template file. For example, if you use this method in your <span style="font-family:monospace">node.html.twig</span>, the CSS and JS files will only get added when a node is rendered. If you do it in your <span style="font-family:monospace">node--content-type.html.twig</span>&nbsp;the files will only get added when a node of that particular content type is rendered. You can imagine the flexibility when doing this in specific field or views&nbsp;templates.</p>
+
+    <h4>PHP</h4>
+
+    <p>Lastly, libraries can be attached in preprocess.</p>
+
+    <p><code>&lt;?php<br>
+        function mythemename_preprocess_page(&amp;$variables) {<br>
+        &nbsp; $variables['#attached']['library'][] = 'mythemename/my-library-name';<br>
+        }<br>
+        ?&gt;</code></p>
+
+    <p>Here you can add whatever logic needed to match the conditions you want before adding the library to the '<span style="font-family:monospace">library'</span> array.</p>
+
+    <h3>Manipulating Libraries</h3>
+
+    <p>Since all CSS and JS files in Drupal 8 are now in libraries, themes have complete control over those files, regardless of whether they are part of the theme or not. The two main ways to manipulate&nbsp;libraries are with <span style="font-family:monospace">libraries-extend</span> and <span style="font-family:monospace">libraries-override</span>.</p>
+
+    <h4>Libraries-extend</h4>
+
+    <p>Libraries-extend is a property used in your theme’s info file. It attaches your library to any existing library. The real power here is that the inclusion of your library will now match the library that was extended. If there is any special logic behind when and how that library is attached, your library goes along for the ride without you having to do anything to recreate that logic yourself.</p>
+
+    <p><code># In mythemename.info.yml<br><br>
+        libraries-extend:<br>
+        &nbsp; # Classy's forums library is only included when the forums.html.twig<br>
+        &nbsp; # template is used. This will add my theme's 'forums'&nbsp;library at the same<br>
+        &nbsp; # time.<br>
+        &nbsp; classy/forums:<br>
+        &nbsp; &nbsp; - mythemename/forums</code></p>
+
+    <p>In the above example, a forums library is created as part of our example theme, and attached to Classy’s <span style="font-family:monospace">forums</span> library. Any time Classy’s library gets attached, which is only when a forum is rendered, the example theme’s library also gets attached.</p>
+
+    <h4>Libraries-override</h4>
+
+    <p>Libraries-override is an even more powerful property that can be used in your theme’s info file. It gives you complete control over any library, to manipulate in anyway you see fit.</p>
+
+    <p>Let’s take a look at some examples.</p>
+
+    <h5>Remove a File</h5>
+
+    <p><code># In mythemename.info.yml<br><br>
+        libraries-override:<br>
+        &nbsp; # The library name.<br>
+        &nbsp; core/jquery.ui:<br>
+        &nbsp; &nbsp; # CSS files are always labeled as such. This format is required.<br>
+        &nbsp; &nbsp; css:<br>
+        &nbsp; &nbsp; &nbsp; # The SMACSS category is required.<br>
+        &nbsp; &nbsp; &nbsp; theme:<br>
+        &nbsp; &nbsp; &nbsp; &nbsp; # The path to the file. It is not a path relative to your theme.<br>
+        &nbsp; &nbsp; &nbsp; &nbsp; assets/vendor/jquery.ui/themes/base/theme.css: false</code></p>
+
+    <p>You’ll notice the structure is exactly the same as when you define a library in your <span style="font-family:monospace">.libraries.yml</span> file. You specify the library name, SMACSS category, and original path to the CSS file. The only difference being the library name must also include the source. In this case, <span style="font-family:monospace">core</span> is prepended&nbsp;to the library name, because the <span style="font-family:monospace">jquery.ui</span> library is defined by Drupal core.</p>
+
+    <p>On the line with the path to the CSS file, note that this path is the same as defined by the library. It is not a path relative to your theme, or the website root. It is exactly the same as defined by the <span style="font-family:monospace">jquery.ui</span> library. The path is used as a key to identify the CSS file, so it has to match. If you don’t know what the path is, just find the <span style="font-family:monospace">.libraries.yml</span> that defined the library, and copy it.</p>
+
+    <p>Lastly, in this example we’ve added <span style="font-family:monospace">false</span> after the file. This tells Drupal to remove that CSS file any time the library is used. When we say, “no more PHP”, this is it. Gone are the days of preprocessing or alters, doing string searches, and unsetting array elements.</p>
+
+    <h5>Replace a File</h5>
+
+    <p><code># In mythemename.info.yml<br><br>
+        libraries-override:<br>
+        &nbsp; system/maintenance:<br>
+        &nbsp; &nbsp; css:<br>
+        &nbsp; &nbsp; &nbsp; theme:<br>
+        &nbsp; &nbsp; &nbsp; &nbsp; # Replace the System module's maintenance CSS file with a custom one.<br>
+        &nbsp; &nbsp; &nbsp; &nbsp; css/system.maintenance.css: css/maintenance.css</code></p>
+
+    <p>Here we have targeted one particular CSS file added by the System module, in a library called <span style="font-family:monospace">maintenance</span>. Following the <span style="font-family:monospace">system.maintenance.css</span> we supply the path to our own CSS file. This path is relative to the theme’s directory. And since we are supplying a file to an already existing library, this file does not have to be part of any other library defined by the theme.</p>
+
+    <p>When doing this yourself you’ll also notice that the new file gets placed in the exact same place the original file was linked in the head of a page. Whether the original file was first or seventh, the new file will be the same. This ensures the cascade of rules in all the stylesheets is not disturbed.</p>
+
+    <h5>Replace and Remove Whole Libraries</h5>
+
+    <p><code># In mythemename.info.yml<br><br>
+        libraries-override:<br>
+        &nbsp; # Replace Classy's messages library with a custom one.<br>
+        &nbsp; classy/messages:<br>
+        &nbsp; &nbsp; mythemename/messages<br><br>
+        &nbsp;&nbsp;# Remove Classy's search results library completely.<br>
+        &nbsp; classy/search-results: false</code></p>
+
+    <p>In this example, we are doing two things. First, replace Classy’s &nbsp;<span style="font-family:monospace">messages</span> library with one from the example theme. This will prevent any of the files used in the Classy library from getting used, and replace them with the files in the example theme’s library. Note that your theme’s library does not have to match the original library. You can have more, or fewer, files, and call them whatever you want. This just substitutes your library for the original one.</p>
+
+    <p>Second, the <span style="font-family:monospace">false</span>&nbsp;placed after Classy’s <span style="font-family:monospace">search-results</span> library removes it completely. This is similar to how we removed an individual CSS file in the previous example, but in this case we remove the entire library.</p>
+
+    <h3>Voila!</h3>
+
+    <p>As you can see, given the all-in approach Drupal 8 has taken with libraries, and the power of <span style="font-family:monospace">libraries-extend</span> and <span style="font-family:monospace">libraries-override</span>, themers now have total control!</p>
+</div>
+</body>
+</html>
